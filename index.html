@@ -37,6 +37,8 @@
             }
         }
     </script>
+    <!-- HubSpot tracking code -->
+    <script type="text/javascript" id="hs-script-loader" async defer src="//js-eu1.hs-scripts.com/26169494.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -319,6 +321,11 @@
 
     <!-- Form handling -->
     <script>
+        // HubSpot config — replace FORM_GUID after creating form in HubSpot
+        const HS_PORTAL_ID = '26169494';
+        const HS_FORM_GUID = 'REPLACE_WITH_YOUR_FORM_ID'; // Create form in HubSpot > Marketing > Forms
+        const HS_API_URL = `https://api-eu1.hsforms.com/submissions/v3/integration/submit/${HS_PORTAL_ID}/${HS_FORM_GUID}`;
+
         const forms = document.querySelectorAll('form');
 
         forms.forEach(form => {
@@ -331,14 +338,43 @@
 
                 if (!email) return;
 
-                // TODO: Replace with HubSpot form submission
-                button.innerHTML = 'Registrert! &#10003;';
-                button.classList.remove('bg-brand-700', 'bg-white');
-                button.classList.add('bg-green-600', 'text-white');
+                button.innerHTML = 'Sender...';
                 button.disabled = true;
-                emailInput.value = '';
-                emailInput.placeholder = 'Takk! Sjekk innboksen din.';
-                emailInput.disabled = true;
+
+                try {
+                    const response = await fetch(HS_API_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            fields: [{ name: 'email', value: email }],
+                            context: {
+                                pageUri: window.location.href,
+                                pageName: document.title,
+                                hutk: document.cookie.match(/hubspotutk=([^;]*)/)?.[1] || ''
+                            }
+                        })
+                    });
+
+                    if (response.ok) {
+                        button.innerHTML = 'Registrert! &#10003;';
+                        button.classList.remove('bg-brand-700', 'bg-white');
+                        button.classList.add('bg-green-600', 'text-white');
+                        emailInput.value = '';
+                        emailInput.placeholder = 'Takk! Sjekk innboksen din.';
+                        emailInput.disabled = true;
+                    } else {
+                        throw new Error('Submission failed');
+                    }
+                } catch (err) {
+                    button.innerHTML = 'Noe gikk galt — pr&oslash;v igjen';
+                    button.classList.add('bg-red-600');
+                    setTimeout(() => {
+                        button.innerHTML = originalText;
+                        button.classList.remove('bg-red-600');
+                        button.disabled = false;
+                    }, 3000);
+                    return;
+                }
 
                 setTimeout(() => {
                     button.innerHTML = originalText;
